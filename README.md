@@ -52,3 +52,5 @@ Developer: Dimitar Kretski
 Status: Early Access / Pilot Phase
 
 License: Proprietary / Commercial License available upon request.
+
+With $\kappa = 1.5$, MicroSafe-RL enforces a strict safety protocol, reducing RL rewards by up to 83% during high-entropy events, ensuring the agent prioritizes hardware integrity over task completion
