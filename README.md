@@ -1,8 +1,3 @@
-🛡️ MicroSafe-RL
-  Sub‑microsecond adaptive safety layer for Edge AI
-  ────────────────────────────────────────────────────────────────────────────
--->
-
 <p align="center">
   <img src="https://img.shields.io/badge/latency-1.18_µs-brightgreen?style=for-the-badge&logo=clockify"/>
   <img src="https://img.shields.io/badge/RAM-20_bytes-brightgreen?style=for-the-badge&logo=memory"/>
@@ -21,127 +16,79 @@
 <p align="center">
   <img src="docs/demo.gif" width="80%" alt="MicroSafe-RL in action – showing penalty spike on sudden drift"/>
   <br/>
-  <sub>🎥 <em>Replace with your own GIF: STM32 + potentiometer + LED</em></sub>
+  <i>Visualization: The engine detecting high-entropy "Chaos" states and suppressing AI commands before failure.</i>
 </p>
 
 ---
 
-## 🚨 The Hardware Drift Nightmare
+## 🚀 The Problem: The "Hardware Drift" Nightmare
+Deploying Reinforcement Learning (RL) agents on real physical hardware (robotics, CNC, drones) reveals a catastrophic flaw: **The Unexplored State Space.**
 
-> **Day 1** – Perfect AI, brand‑new robot, everything works.  
-> **Day 100** – Mechanics wear, sensors drift, old limits fail.  
-> **AI starts guessing → hardware breaks.**
+* **Day 1:** You deploy an AI agent on a brand-new robot. It works perfectly.
+* **Day 100:** Mechanics wear out, motors heat up, and sensors introduce noise (**Hardware Drift**). The AI agent encounters a state it has never seen, panics, and blindly fires an extreme command that destroys the hardware.
 
-**MicroSafe-RL stops the nightmare.**  
-It learns *your* hardware’s normal behaviour and **adapts in real time** – no model, no retraining, no manual tweaking.
+**MicroSafe-RL** is an O(1) bare-metal C++ engine that acts as a real-time "Safety Interceptor". It profiles the hardware's normal stability signature and proactively clamps dangerous commands.
 
----
-
-## ⚡ Why MicroSafe-RL?
-
-| Feature | What it means for you |
-|---------|----------------------|
-| **⚡ Sub‑µs latency** | Reacts faster than any software watchdog (1.18 µs @72 MHz) |
-| **🧠 Model‑free** | No physics equations – just sensor data |
-| **🔄 Self‑adapting** | Tracks hardware drift, wear, and changing dynamics |
-| **🪶 20 bytes RAM** | Runs on the cheapest MCU |
-| **🔒 Zero malloc** | Deterministic, no heap fragmentation |
-| **🔧 Drop‑in C++ header** | Integrate in 10 minutes |
+## 📊 Performance (Benchmark: STM32 Cortex-M3 @ 72MHz)
+| Metric | Value | Advantage |
+| :--- | :--- | :--- |
+| **Latency (WCET)** | **1.18 µs** | ~85 clock cycles. Faster than physical electricity propagation in many circuits. |
+| **RAM Footprint** | **20 Bytes** | Malloc-free. Zero fragmentation risk. Fits on the smallest ATTiny. |
+| **Adaptability** | **Model-Free** | No complex physics equations. Adapts to mechanical wear via EMA/MAD stats. |
+| **Determinism** | **O(1)** | Constant execution time regardless of signal complexity. |
 
 ---
 
-## 🧠 How It Works (Simplified)
+## 🛠️ The Toolkit: Zero-Math Setup
 
-1. **Learn the “normal”** – EMA + MAD + velocity create a *stability signature*.
-2. **Detect anomalies** – deviation from normal → penalty score.
-3. **Apply two‑layer safety**  
-   - 🟢 *Soft shielding*: scale down action (gravity factor)  
-   - 🔴 *Hard shielding*: clamp to absolute safe limits  
-4. **AI learns** – penalty is subtracted from the reward stream. The agent *avoids* risky zones before reaching them.
-
-<p align="center">
-  <img src="docs/block_diagram.png" width="70%" alt="MicroSafe-RL block diagram"/>
-  <br/>
-  <sub>📐 Block diagram – coming soon</sub>
-</p>
-
----
-
-## 🚀 Quick Start (2 minutes)
-
-### 1️⃣ Record normal operation
-
-Run the auto‑tuner while your system works correctly (no AI, just telemetry):
-
+### 1️⃣ Step 1: The Auto-Tuner (Python)
+Record 2 minutes of your motor/sensor working normally and run the profiler. It calculates the natural noise floor and generates your C++ parameters.
 ```bash
-python microsafe_profiler.py normal_data.csv
-It outputs ready‑to‑use parameters:
+python tools/microsafe_profiler.py motor_telemetry.csv
+Output: ✅ MicroSafeRL safety(0.078f, 0.55f, 0.95f, 0.84f, 1.0f, -1.5f, 1.5f, 0.05f);
 
-cpp
-MicroSafeRL safety(0.078f, 0.55f, 0.95f, 0.84f, 1.0f, -1.5f, 1.5f, 0.05f);
-2️⃣ Integrate the header
-cpp
+2️⃣ Step 2: The Interceptor (C++)
+Drop the generated parameters into the header-only library. It will now protect your hardware in every control loop iteration.
+
+C++
 #include "MicroSafeRL.h"
 
-MicroSafeRL safety(kappa, alpha, decay, beta, max_penalty,
-                   min_action, max_action, gravity_g);
+// Initialize with Auto-Tuner values
+MicroSafeRL safety(0.078f, 0.55f, 0.95f, 0.84f, 1.0f, -1.5f, 1.5f, 0.05f);
 
 void loop() {
+    float sensor_val = analogRead(A0);
+    float ai_action = agent.predict(sensor_val);
+
+    // Intercept & Clamp (1.18µs)
     float safe_action = safety.apply_safe_control(ai_action, sensor_val);
-    float reward = safety.get_current_reward(sensor_val);
-    // use safe_action and reward as you like
+    
+    analogWrite(MOTOR_PIN, safe_action);
+
+    // Feed the "Safety Reward" back to the AI for training
+    float reward = safety.get_current_reward(); 
 }
-3️⃣ Build and run – safety works out of the box
-📊 Performance (STM32F103 @72 MHz)
-Metric	Value
-Latency (WCET)	1.18 µs (85 cycles)
-RAM	20 bytes
-Flash	<300 bytes
-Allocation	0 (no malloc)
-Deterministic	Yes (O(1))
-Faster than any software‑based hard limit you have ever used.
+🔬 Critical Engineering FAQ
+Q: What exactly is sensor_val? It is a Composite Signal. We recommend passing a value that defines "health" (e.g., Mean Squared Error, Current Draw, or Vibration).
 
-🔬 What It Prevents
-❌ Runaway actuator commands
+Q: Will it block legitimate fast movements? No. The Auto-Tuner profiles your specific hardware's aggressive-but-normal operation. It only triggers a penalty when the dynamics deviate into "Unknown Chaos" (High Entropy).
 
-❌ Destructive oscillations
-
-❌ Current spikes
-
-❌ Out‑of‑distribution control (when the AI “guesses”)
+Q: Can it run on Arduino? Absolutely. While benchmarked on STM32, it runs on any MCU with a C++ compiler. On a 16MHz Arduino, latency is ~5-6µs – still vastly faster than mechanical reaction times.
 
 🧩 Use Cases
-🤖 Robotics – servo/motor protection under wear & tear
+🤖 Robotics: Servo/motor protection under mechanical wear & tear.
 
-🚁 Drones – prevent over‑current during aggressive manoeuvres
+🚁 Drones: Prevent over-current during aggressive maneuvers.
 
-🏭 Industrial automation – adaptive safety for ageing machinery
+🏭 Automation: Adaptive safety for aging industrial machinery.
 
-⚛️ Quantum control – keep cryogenic stability without retraining
+🧪 AI Research: Safe Reinforcement Learning on real hardware without expensive repairs.
 
-🧪 Embedded AI research – safe RL on real hardware
+📬 Early Access & Pilot Program
+We are currently looking for 2 teams in Robotics or Industrial Automation to join our Pilot Phase. If your AI has ever damaged your hardware – we need to talk.
 
-📬 Early Access / Pilot Program
-We are looking for 2 teams working on:
+Developer: Dimitar Kretski
 
-robotics
+Contact: kretski1@gmail.com
 
-drones
-
-industrial systems
-
-👉 If your AI has ever damaged hardware – we want to talk.
-
-✉️ Contact: [your‑email@example.com]
-
-👨‍💻 Author
-Dimitar Kretski
-Early Access / Pilot Phase
-
-⚖️ Intellectual Property & License
-MicroSafe-RL is proprietary and patent‑pending.
-Public release does not waive any intellectual property rights.
-Commercial licenses are available – contact the author.
-
-⭐ Show your support
-If this project helps you or you believe in safe Edge AI, give it a star ⭐ – it shows us there is real demand.
+Status: Early Access / Commercial Licensing available upon request.
