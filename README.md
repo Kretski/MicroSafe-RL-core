@@ -2,8 +2,8 @@
   <img src="https://img.shields.io/badge/latency-1.18_µs-brightgreen?style=for-the-badge&logo=clockify"/>
   <img src="https://img.shields.io/badge/RAM-20_bytes-brightgreen?style=for-the-badge&logo=memory"/>
   <img src="https://img.shields.io/badge/Logic-Deterministic_O(1)-orange?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Compliance-MISRA_Ready-blue?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/license-Commercial-red?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/IEEE_ID-TAES--2026--1001-blue?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/DOI-10.5281/zenodo.19019599-blue?style=for-the-badge"/>
 </p>
 
 <h1 align="center">🛡️ MicroSafe-RL: Deterministic Sub-Microsecond Safety Layer for Edge AI & Robotics</h1>
@@ -26,6 +26,17 @@
 * **Ultra-Low Latency:** 1.18 µs response time—faster than electrical propagation in many circuits.
 * **Zero Footprint:** Uses only 20 bytes of RAM and **zero dynamic allocation** (no malloc), eliminating fragmentation risks.
 * **Adaptive Protection:** Uses statistical profiles (EMA + MAD) to detect "Hardware Drift" caused by mechanical wear or heat.
+* **Public Integrity:** Open-source core implementation for peer review and industrial audit.
+
+---
+
+## 🎓 Academic Status & Verifiability
+This project is part of a high-reliability control framework for autonomous systems.
+
+* **Status:** Submitted on March 14, 2026, to **IEEE Transactions on Aerospace and Electronic Systems**.
+* **Manuscript ID:** `TAES-2026-1001` (Awaiting AE Assignment).
+* **Paper Title:** "A Control Lyapunov Metric for Autonomous Fault Recovery in Embedded and Aerospace Systems".
+* **Archival Reference:** Methodology and performance data are archived in **Zenodo** (DOI: 10.5281/zenodo.19019599).
 
 ---
 
@@ -35,12 +46,11 @@
 | **Latency (WCET)** | 200ms+ | 10ms+ | **1.18 µs** |
 | **RAM Footprint** | GBs | MBs | **20 Bytes** |
 | **Safety Type** | Reactive | Predictive (Heavy) | **Deterministic / Proactive** |
-| **Edge Feasibility** | None | Limited | **Full Bare-Metal** |
 
 ---
 
 ## 🏗️ Core Architecture: How it Works
-MicroSafe-RL does not use heavy neural networks for safety. Instead, it employs **Adaptive Thresholding** via a high-performance C++ core:
+MicroSafe-RL employs **Adaptive Thresholding** via a high-performance C++ core instead of heavy neural networks:
 1. **EMA + MAD Profiling:** Tracks Exponential Moving Average and Mean Absolute Deviation of telemetry to define a "Stability Signature".
 2. **Soft Shielding (Gravity Factor):** Gently modulates AI actions as they approach stability limits.
 3. **Hard Shielding (Clamp):** Guarantees physical safety by enforcing strict bounds within 85 clock cycles (on 72MHz MCU).
@@ -49,44 +59,28 @@ MicroSafe-RL does not use heavy neural networks for safety. Instead, it employs 
 
 ## 🛠️ Installation & Simulation
 ### 🐍 Python (Training & Sim-to-Real)
-Install the wrapper to ensure simulation-to-hardware parity:
 ```bash
 pip install .
-🔌 Embedded C++ (Deployment)
+Embedded C++ (Deployment)
 Drop MicroSafeRL.h into your project. Header-only, zero dependencies, C++11 compliant.
 
 💡 Quick Integration Guide
 Step 1: Profile Hardware
-Record normal telemetry and generate optimized safety constants:
-
 Bash
 python tools/microsafe_profiler.py data/input_signal.csv
-Step 2: Integrate Safety Shield
-Initialize the interceptor in your firmware:
-
+Step 2: Initialize Shield
 C++
 #include "MicroSafeRL.h"
-// Auto-generated parameters from Step 1
 MicroSafeRL safety(0.078f, 0.55f, 0.95f, 0.84f, 1.0f, -1.5f, 1.5f, 0.05f);
 Step 3: Enforce Real-Time Safety
 C++
 void loop() {
     float ai_action = agent.predict(sensor_val);
-    // Deterministic interception (1.18µs)
     float safe_action = safety.apply_safe_control(ai_action, sensor_val);
     motor.write(safe_action);
 }
-🏗️ Project Organization
-MicroSafeRL.h: Core engine for embedded deployment.
-
-wrappers/: Gymnasium/Gym wrappers for seamless training integration.
-
-tools/: Automated Profiler for hardware signature generation.
-
-examples/: Full implementations for STM32, Arduino, and Stable Baselines3.
-
 📬 Commercial Licensing & IP Acquisition
-MicroSafe-RL is available for commercial licensing and private IP acquisition. We provide specialized integration services, including:
+MicroSafe-RL core is open-source for review. Commercial licensing and private IP acquisition are available for:
 
 MISRA-C Compliance Audits
 
