@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" width="80%" alt="MicroSafe-RL in action – showing penalty spike on sudden drift"/>
+  <img src="media/demo.mp4" width="80%" alt="MicroSafe-RL in action"/>
   <br/>
   <i>Visualization: The engine detecting high-entropy "Chaos" states and suppressing AI commands before failure.</i>
 </p>
@@ -39,21 +39,45 @@ Deploying Reinforcement Learning (RL) agents on real physical hardware (robotics
 
 ---
 
-## 🛠️ The Toolkit: Zero-Math Setup
+## 🏗️ Project Structure
+- `MicroSafeRL.h`: Core C++ library for embedded deployment.
+- `wrappers/`: Gymnasium/Gym wrappers for seamless AI integration.
+- `tools/`: Auto-Tuner for generating hardware stability signatures.
+- `examples/`: Ready-to-run scripts for STM32, Stable Baselines3, and RLLib.
 
-### 1️⃣ Step 1: The Auto-Tuner (Python)
-Record 2 minutes of your motor/sensor working normally and run the profiler. It calculates the natural noise floor and generates your C++ parameters.
+---
+
+## 🛠️ Installation & Setup
+
+### 🐍 Python (Simulation & Training)
+Install the safety wrapper and profiler directly from the root:
 ```bash
-python tools/microsafe_profiler.py motor_telemetry.csv
+pip install .
+🔌 Embedded C++ (Hardware Deployment)
+Just drop MicroSafeRL.h into your project. It is header-only and has zero dependencies.
+
+💡 Quick Start
+1️⃣ Step 1: Profile your Hardware (Python)
+Record 2 minutes of your motor working normally and run the profiler to generate your C++ parameters.
+
+Bash
+python tools/microsafe_profiler.py data/input_signal.csv
 Output: ✅ MicroSafeRL safety(0.078f, 0.55f, 0.95f, 0.84f, 1.0f, -1.5f, 1.5f, 0.05f);
 
-2️⃣ Step 2: The Interceptor (C++)
-Drop the generated parameters into the header-only library. It will now protect your hardware in every control loop iteration.
+2️⃣ Step 2: Shield your AI Agent (Python Wrapper)
+If you are training in simulation, use the provided wrapper to shape rewards and shield actions:
+
+Python
+from wrappers.microsafe_gym import MicroSafeWrapper
+import gymnasium as gym
+
+env = MicroSafeWrapper(gym.make("Pendulum-v1"), kappa=0.078, alpha=0.55)
+3️⃣ Step 3: Deploy to MCU (C++)
+Drop the parameters into your control loop. It will protect your hardware in every iteration.
 
 C++
 #include "MicroSafeRL.h"
 
-// Initialize with Auto-Tuner values
 MicroSafeRL safety(0.078f, 0.55f, 0.95f, 0.84f, 1.0f, -1.5f, 1.5f, 0.05f);
 
 void loop() {
@@ -61,31 +85,19 @@ void loop() {
     float ai_action = agent.predict(sensor_val);
 
     // Intercept & Clamp (1.18µs)
-    float safe_action = safety.apply_safe_control(ai_action, sensor_val);
+    float safe_action = safety.apply_safe_control(ai_action, sensor_val); [cite: 7]
     
     analogWrite(MOTOR_PIN, safe_action);
-
-    // Feed the "Safety Reward" back to the AI for training
-    float reward = safety.get_current_reward(); 
 }
 🔬 Critical Engineering FAQ
 Q: What exactly is sensor_val? It is a Composite Signal. We recommend passing a value that defines "health" (e.g., Mean Squared Error, Current Draw, or Vibration).
 
-Q: Will it block legitimate fast movements? No. The Auto-Tuner profiles your specific hardware's aggressive-but-normal operation. It only triggers a penalty when the dynamics deviate into "Unknown Chaos" (High Entropy).
+Q: Will it block legitimate fast movements? No. The Auto-Tuner profiles your specific hardware's aggressive-but-normal operation. It only triggers a penalty when the dynamics deviate into "Unknown Chaos".
 
-Q: Can it run on Arduino? Absolutely. While benchmarked on STM32, it runs on any MCU with a C++ compiler. On a 16MHz Arduino, latency is ~5-6µs – still vastly faster than mechanical reaction times.
-
-🧩 Use Cases
-🤖 Robotics: Servo/motor protection under mechanical wear & tear.
-
-🚁 Drones: Prevent over-current during aggressive maneuvers.
-
-🏭 Automation: Adaptive safety for aging industrial machinery.
-
-🧪 AI Research: Safe Reinforcement Learning on real hardware without expensive repairs.
+Q: Can it run on Arduino? Absolutely. While benchmarked on STM32, it runs on any MCU with a C++ compiler. On 16MHz Arduino, latency is ~5-6µs.
 
 📬 Early Access & Pilot Program
-We are currently looking for 2 teams in Robotics or Industrial Automation to join our Pilot Phase. If your AI has ever damaged your hardware – we need to talk.
+We are currently looking for 2 teams in Robotics or Industrial Automation to join our Pilot Phase.
 
 Developer: Dimitar Kretski
 
