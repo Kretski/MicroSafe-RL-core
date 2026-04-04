@@ -21,7 +21,7 @@
 |---|---|
 | **Worst-Case Latency (WCET)** | 1.18 µs on Cortex-M3 @ 72 MHz |
 | **RAM Footprint** | 24 bytes, zero dynamic allocation |
-| **Algorithm Complexity** | $O(1)$ per step |
+| **Algorithm Complexity** | $$O(1)$$ per step |
 | **Safety Type** | Deterministic / Proactive (EMA + MAD) |
 
 ---
@@ -53,8 +53,7 @@ Measured with DWT hardware cycle counter (direct clock register access).
 
 🔬 Academic Status & Verifiability
 Submitted to peer review:
-"A Control Lyapunov Metric for Autonomous Fault Recovery in Embedded and Aerospace Systems"
-IEEE Transactions on Aerospace and Electronic Systems — ID: TAES-2026-1001.
+"A Control Lyapunov Metric for Autonomous Fault Recovery in Embedded and Aerospace Systems" IEEE Transactions on Aerospace and Electronic Systems — ID: TAES-2026-1001.
 
 Published Preprint (Zenodo):
 DOI: 10.5281/zenodo.19019599.
@@ -99,6 +98,8 @@ python tools/microsafe_profiler.py data/input_signal.csv
 
 # Optimal parameters found: kappa=0.088, beta=0.85...
 📬 Licensing
-Open Source (MIT): Academic and non-commercial research.
+MicroSafe-RL is released under the MIT License for research and prototyping.
 
-Commercial: For MISRA-C compliance audits, FPGA/ASIC porting, or private IP acquisition, contact: kretski1@gmail.com.
+For production use in safety-critical, certified, or commercial environments (e.g., aerospace, automotive, industrial control), licensing and support agreements are available.
+
+Contact: kretski1@gmail.com (Commercial Licensing & Partnerships)
