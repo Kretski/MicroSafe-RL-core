@@ -18,7 +18,7 @@
   <i>High-integrity runtime protection for mission-critical embedded systems.</i>
 </p>
 
----
+![MISRA](https://img.shields.io/badge/MISRA--C:2012-Compliant-brightgreen)
 
 ## 📈 Executive Summary
 **MicroSafe-RL** is an ultra-lightweight, bare-metal C++ interceptor that protects physical hardware from Reinforcement Learning (RL) instability and LLM hallucinations (Gemma 4, Llama 3). It acts as a **deterministic safety bridge**, intercepting unsafe commands in under **1.18 µs**.
@@ -68,7 +68,7 @@ This penalty dynamically attenuates AI outputs and reshapes RL rewards to preven
 ## 🔬 Academic Status
 **Submitted for Review:** *"A Control Lyapunov Metric for Autonomous Fault Recovery in Embedded and Aerospace Systems"* — **IEEE Transactions on Aerospace and Electronic Systems** (Manuscript ID: TAES-2026-1001).
 
----
+
 
 ## 📬 Licensing
 
