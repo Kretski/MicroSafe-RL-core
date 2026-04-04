@@ -1,4 +1,10 @@
 <p align="center">
+  <a href="https://www.producthunt.com/products/github-330?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-github-da53abcb-ebd6-4e2a-9c65-611f6ca15861" target="_blank" rel="noopener noreferrer">
+    <img alt="GitHub - Preventing AI Failures in the Physical World in Microseconds | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1115408&amp;theme=light&amp;t=1775275489205">
+  </a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/latency-1.18_µs_WCET-brightgreen?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/RAM-24_bytes-brightgreen?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/Logic-Deterministic_O(1)-orange?style=for-the-badge"/>
@@ -21,7 +27,7 @@
 |---|---|
 | **Worst-Case Latency (WCET)** | 1.18 µs on Cortex-M3 @ 72 MHz |
 | **RAM Footprint** | 24 bytes, zero dynamic allocation |
-| **Algorithm Complexity** | $$O(1)$$ per step |
+| **Algorithm Complexity** | $O(1)$ per step |
 | **Safety Type** | Deterministic / Proactive (EMA + MAD) |
 
 ---
@@ -52,11 +58,9 @@ $$reward = 1.0 - penalty$$
 Measured with DWT hardware cycle counter (direct clock register access).
 
 🔬 Academic Status & Verifiability
-Submitted to peer review:
-"A Control Lyapunov Metric for Autonomous Fault Recovery in Embedded and Aerospace Systems" IEEE Transactions on Aerospace and Electronic Systems — ID: TAES-2026-1001.
+Submitted to peer review: "A Control Lyapunov Metric for Autonomous Fault Recovery in Embedded and Aerospace Systems" IEEE Transactions on Aerospace and Electronic Systems — ID: TAES-2026-1001.
 
-Published Preprint (Zenodo):
-DOI: 10.5281/zenodo.19019599.
+Published Preprint (Zenodo): DOI: 10.5281/zenodo.19019599.
 
 📂 Repository Structure
 Plaintext
