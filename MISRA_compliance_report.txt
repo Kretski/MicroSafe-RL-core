@@ -1,0 +1,42 @@
+MicroSafe-RL — MISRA-C:2012 Compliance Report
+==============================================
+Tool    : Cppcheck 2.13.0 + MISRA-C:2012 addon
+Date    : April 2026
+Author  : Kretski, Dimitar
+DOI     : 10.5281/zenodo.19019599
+
+FIXED VIOLATIONS (Required / Mandatory level)
+──────────────────────────────────────────────
+Rule 12.1  Operator precedence         5 instances → FIXED
+Rule 12.3  Implicit type conversion    2 instances → FIXED
+Rule 15.5  Single exit point           5 instances → FIXED
+Rule 15.6  Compound statements         1 instance  → FIXED
+Rule 17.8  Parameter modification      1 instance  → FIXED
+Rule 8.2   Prototype parameter names   3 instances → FIXED
+Rule 8.10  Inline function linkage     1 instance  → FIXED
+
+REMAINING ADVISORY DEVIATIONS (justified)
+──────────────────────────────────────────
+Rule 2.7  Unused parameter names in constructor initializer list
+          DEVIATION: C++ language limitation — parameters ARE used
+          in the member initializer list. Cppcheck false positive
+          for C++ constructors. Justified per MISRA-C++ deviation.
+
+Rule 2.5  Unused macros (MSRL_DEFAULT_*)
+          DEVIATION: Macros are part of the public configuration API
+          for the auto-tuner tool (microsafe_profiler.py). They are
+          not used internally but are required by external tooling.
+          Documented in Safety Manual Section 3.2.
+
+Rule 8.7  init() function with external linkage
+          DEVIATION: init() is a public API required for Gymnasium
+          wrapper integration. External linkage is intentional.
+          Documented in Safety Manual Section 2.1.
+
+CRITICAL violations   : 0
+REQUIRED violations   : 0
+MANDATORY violations  : 0
+ADVISORY (justified)  : 3 rule categories, all documented
+
+VERDICT: MISRA-C:2012 COMPLIANT
+        (zero Critical/Required/Mandatory violations)
