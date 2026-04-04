@@ -77,12 +77,3 @@ MicroSafe-RL is released under the **MIT License** for research and prototyping.
 For **production deployment** in safety-critical, certified, or regulated environments, commercial licensing and support agreements are available.
 
 **Contact:** [kretski1@gmail.com](mailto:kretski1@gmail.com) (Commercial Licensing & Partnerships)
-🚀 Какво да направиш сега:
-Обнови README.md в твоята папка C:\Users\Lenovo\Desktop\MicroSafe с този код.
-
-Git Push:
-
-PowerShell
-git add .
-git commit -m "release: v1.0.1 - Added PH badge, MISRA-C core, and Roadmap"
-git push origin main
