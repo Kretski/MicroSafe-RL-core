@@ -1,12 +1,10 @@
+# 🛡️ MicroSafe-RL / ORAC-NT v7.4
 
-# 🛡️ MicroSafe-RL
-
-![Build](https://img.shields.io/badge/build-passing-brightgreen)
 ![Latency](https://img.shields.io/badge/latency-535ns-blue)
 ![Memory](https://img.shields.io/badge/RAM-24B-lightgrey)
 ![Complexity](https://img.shields.io/badge/complexity-O(1)-orange)
 ![MISRA](https://img.shields.io/badge/MISRA--C-2012-success)
-
+![License](https://img.shields.io/badge/license-Proprietary-red)
 ![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19019599-blue)
 
 **Deterministic Safety Filter for Real-Time Control Systems**
@@ -21,25 +19,26 @@ It enforces bounded, predictable behavior on every control cycle.
 ```cpp
 #include "MicroSafeRL_misra.h"
 
-MicroSafeRL safety(...);
+// kappa, alpha, decay, beta, gravity, min, max, velocity weight
+MicroSafeRL safety(0.078f, 0.55f, 2.2f, 0.12f, 1.0f, -1.5f, 1.5f, 0.05f);
 
-float safe = safety.apply_safe_control(ai_action, sensor_val);
-actuator.set(safe);
-No allocation. No async. Runs every cycle.
+void loop() {
+    float ai_action = get_ai_command();
+    float sensor_val = read_sensor();
+
+    float safe_val = safety.apply_safe_control(ai_action, sensor_val);
+    actuator.set(safe_val);
+}No dynamic memory. No async. Runs every control cycle.
 
 📍 Pipeline Position
-[ AI / RL / LLM ]
-        ↓
-[ MicroSafe-RL ]
-        ↓
-[ Actuator ]
+[ AI / RL / LLM ] → [ MicroSafe-RL ] → [ Actuator ]
 📌 Properties
 O(1) execution
-535 ns latency (STM32 @ 84 MHz)
+535 ns latency (STM32 @ 84 MHz, DWT verified)
 24 bytes RAM
 no dynamic allocation
-fixed-point arithmetic (Q-format)
-MISRA-C:2012 compliant
+fixed-point arithmetic
+MISRA-C:2012 compatible
 🧠 Behavior
 
 At each control step, the system evaluates:
@@ -59,17 +58,6 @@ safe_out = clip(ai_action × gravity, min_limit, max_limit)
 
 Hard clipping is always active.
 
-⚙️ Configuration
-MicroSafeRL safety(
-    0.078f,   // kappa
-    0.55f,    // alpha
-    2.2f,     // decay
-    0.12f,    // beta
-    1.0f,     // gravity
-    -1.5f,    // min
-    1.5f,     // max
-    0.05f     // velocity weight
-);
 📊 Benchmarks
 Metric	Value
 Latency	535 ns
@@ -101,26 +89,19 @@ non-physical systems
 🧪 Validation
 Measured via DWT cycle counter (STM32)
 DOI: 10.5281/zenodo.19019599
-📦 Integration Example
-float safe_val = safety.apply_safe_control(ai_action, sensor_val);
-actuator.set(safe_val);
 🧭 Positioning
 
 Think of it as:
 
 PID controller — but for enforcing safety constraints
 
-📬 License
-
-## 📬 License
+📬 Licensing & Contact
 
 All rights reserved.
 
-📬 Licensing
-All rights reserved.
+This software is proprietary.
+Use, modification, or distribution without explicit permission is prohibited.
 
-This software may not be used, modified or distributed without the express permission of the author. For commercial licensing (Embedded Robotics, Aerospace, Quantum Systems), contact:
+For commercial licensing (Embedded Robotics, Aerospace, Industrial Systems):
 
 📧 kretski1@gmail.com
-Contact for licensing:
-kretski1@gmail.com
