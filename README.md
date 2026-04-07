@@ -6,7 +6,7 @@
 ![Memory](https://img.shields.io/badge/RAM-24B-lightgrey)
 ![Complexity](https://img.shields.io/badge/complexity-O(1)-orange)
 ![MISRA](https://img.shields.io/badge/MISRA--C-2012-success)
-![License](https://img.shields.io/badge/license-MIT-green)
+
 ![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19019599-blue)
 
 **Deterministic Safety Filter for Real-Time Control Systems**
@@ -116,7 +116,11 @@ PID controller — but for enforcing safety constraints
 
 All rights reserved.
 
-This software may not be used, modified, or distributed without explicit permission from the author.
+📬 Licensing
+All rights reserved.
 
+This software may not be used, modified or distributed without the express permission of the author. For commercial licensing (Embedded Robotics, Aerospace, Quantum Systems), contact:
+
+📧 kretski1@gmail.com
 Contact for licensing:
 kretski1@gmail.com
