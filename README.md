@@ -6,8 +6,10 @@
 ![MISRA](https://img.shields.io/badge/MISRA--C-2012-success)
 ![License](https://img.shields.io/badge/license-Proprietary-red)
 ![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19019599-blue)
+![Ollama](https://img.shields.io/badge/Ollama-Compatible-green)
+![Gemma](https://img.shields.io/badge/Gemma-2B%2F7B-blue)
 
-**Deterministic Safety Filter for Real-Time Control Systems**
+**Deterministic Safety Filter for Real-Time Control Systems & Local LLMs**
 
 MicroSafe-RL is a constant-time safety layer placed between AI/control logic and physical actuators.  
 It enforces bounded, predictable behavior on every control cycle.
@@ -31,7 +33,45 @@ void loop() {
 }
 No dynamic memory. No async. Runs every control cycle.
 
+🤖 Local LLM Integration (Gemma, Llama 3, Ollama)
+MicroSafe-RL acts as a safety filter for local chat bots, preventing hallucinations and unsafe commands before they reach hardware.
+
+Architecture
+text
+[Local Chat Bot] → [MicroSafe-RL] → [Safe Output]
+    (Gemma/Llama)     (535ns filter)
+Quick Example with Gemma
+python
+from gemma_safety_demo import SafeGemmaBridge
+
+bridge = SafeGemmaBridge(model_path="gemma-2b-it")
+response = bridge.generate_with_safety("Move arm to position 10")
+# Unsafe commands are automatically clamped
+Files
+File	Purpose
+gemma_safety_demo.py	Complete safety wrapper for Gemma
+examples/advanced/real_gemma_integration.py	Production-grade integration
+Supported Local Bots
+Google Gemma (2B/7B)
+
+Meta Llama 3 (via Ollama)
+
+Mistral (via LM Studio)
+
+Any OpenAI-compatible local API
+
+Run the Demo
+bash
+# Install dependencies
+pip install -e .
+
+# Run Gemma safety demo
+python gemma_safety_demo.py
+
+# Or with Ollama
+curl http://localhost:11434/api/generate -d '{"model": "llama3", "prompt": "safe command"}'
 📍 Pipeline Position
+text
 [ AI / RL / LLM ] → [ MicroSafe-RL ] → [ Actuator ]
 📌 Properties
 O(1) execution
@@ -76,6 +116,22 @@ Threshold	✅	✅	❌	⚠️
 Kalman Filter	❌	❌	✅	❌
 PID Controller	✅	✅	⚠️	❌
 MicroSafe-RL	✅	✅	✅	✅
+📈 Experimental Results
+Figure A — Detection Margin
+MicroSafe maintains a significantly higher time-to-failure margin with low variance.
+
+https://media/Figure_A_margin.png
+
+Figure B — ROC Space
+MicroSafe dominates the ROC space, achieving higher true positive rate.
+
+https://media/Figure_B_ROC.png
+
+Figure C — Latency Distribution
+MicroSafe shows a tight, deterministic latency distribution near 535 ns.
+
+https://media/Figure_C_hist.png
+
 🔬 Failure Modes Covered
 signal spikes
 
@@ -86,6 +142,8 @@ oscillations
 noisy inputs
 
 invalid AI outputs
+
+LLM hallucinations
 
 ⚙️ Design Constraints
 no malloc / free
@@ -110,6 +168,18 @@ Measured via DWT cycle counter (STM32)
 
 DOI: 10.5281/zenodo.19019599
 
+📁 Project Structure
+text
+MicroSafe/
+├── MicroSafeRL.h              # Core header
+├── MicroSafeRL_misra.h        # MISRA-C compliant version
+├── gemma_safety_demo.py       # Local LLM integration demo
+├── setup.py                   # Python bindings
+├── media/                     # Figures and demos
+├── examples/                  # Usage examples
+├── tests/                     # Unit tests
+├── wrappers/                  # Gym/RL wrappers
+└── docs/                      # Documentation
 🧭 Positioning
 Think of it as:
 PID controller — but for enforcing safety constraints
