@@ -1,0 +1,3 @@
+[submodule "plugins/LLM-Safety"]
+	path = plugins/LLM-Safety
+	url = https://github.com/Kretski/LLM-Safety-Plugin.git
