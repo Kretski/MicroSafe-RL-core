@@ -1,194 +1,216 @@
-# 🛡️ MicroSafe-RL / ORAC-NT v7.4
+# MicroSafe-RL — Runtime Safety Layer for LLM Control
 
-![Latency](https://img.shields.io/badge/latency-535ns-blue)
-![Memory](https://img.shields.io/badge/RAM-24B-lightgrey)
-![Complexity](https://img.shields.io/badge/complexity-O(1)-orange)
-![MISRA](https://img.shields.io/badge/MISRA--C-2012-success)
-![License](https://img.shields.io/badge/license-Proprietary-red)
-![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19019599-blue)
-![Ollama](https://img.shields.io/badge/Ollama-Compatible-green)
-![Gemma](https://img.shields.io/badge/Gemma-2B%2F7B-blue)
+MicroSafe-RL is a lightweight, real-time safety layer designed for **LLM-driven control systems** (robotics, embedded AI, edge devices).
 
-**Deterministic Safety Filter for Real-Time Control Systems & Local LLMs**
-
-MicroSafe-RL is a constant-time safety layer placed between AI/control logic and physical actuators.  
-It enforces bounded, predictable behavior on every control cycle.
+It ensures that every action proposed by an AI model is **validated, corrected, and quantified** before execution.
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Positioning
 
-```cpp
-#include "MicroSafeRL_misra.h"
+Not a "plugin".
 
-// kappa, alpha, decay, beta, gravity, min, max, velocity weight
-MicroSafeRL safety(0.078f, 0.55f, 2.2f, 0.12f, 1.0f, -1.5f, 1.5f, 0.05f);
+A **runtime safety layer for LLM-driven control systems with built-in validation and metrics.**
+safety_score = 1 - penalty
 
-void loop() {
-    float ai_action = get_ai_command();
-    float sensor_val = read_sensor();
+→ Provides **quantifiable safety per cycle**
 
-    float safe_val = safety.apply_safe_control(ai_action, sensor_val);
-    actuator.set(safe_val);
-}
-No dynamic memory. No async. Runs every control cycle.
+Patented safety architecture ("Synergy") enabling deterministic, model-independent control at runtime.
+---
 
-🤖 Local LLM Integration (Gemma, Llama 3, Ollama)
-MicroSafe-RL acts as a safety filter for local chat bots, preventing hallucinations and unsafe commands before they reach hardware.
+## ⚙️ Core Concept
 
-Architecture
-text
-[Local Chat Bot] → [MicroSafe-RL] → [Safe Output]
-    (Gemma/Llama)     (535ns filter)
-Quick Example with Gemma
-python
-from gemma_safety_demo import SafeGemmaBridge
+The system sits between:
+LLM / RL Agent → MicroSafe → Hardware / System
 
-bridge = SafeGemmaBridge(model_path="gemma-2b-it")
-response = bridge.generate_with_safety("Move arm to position 10")
-# Unsafe commands are automatically clamped
-Files
-File	Purpose
-gemma_safety_demo.py	Complete safety wrapper for Gemma
-examples/advanced/real_gemma_integration.py	Production-grade integration
-Supported Local Bots
-Google Gemma (2B/7B)
+Each control cycle:
 
-Meta Llama 3 (via Ollama)
+1. AI proposes action (`raw_action`)
+2. Safety layer evaluates constraints
+3. Unsafe actions are clipped or corrected (`safe_action`)
+4. Penalty is computed
+5. Safety score is generated
+6. Final safe command is executed
 
-Mistral (via LM Studio)
+---
 
-Any OpenAI-compatible local API
+## 📊 Runtime Telemetry (VV System)
 
-Run the Demo
-bash
-# Install dependencies
-pip install -e .
+### 🔹 VVRecord (per-cycle logging)
 
-# Run Gemma safety demo
-python gemma_safety_demo.py
+Each loop records:
 
-# Or with Ollama
-curl http://localhost:11434/api/generate -d '{"model": "llama3", "prompt": "safe command"}'
-📍 Pipeline Position
-text
-[ AI / RL / LLM ] → [ MicroSafe-RL ] → [ Actuator ]
-📌 Properties
-O(1) execution
+- `raw_action`
+- `safe_action`
+- `penalty`
+- `gravity`
+- `clipped` (bool)
+- `safety_score`
+- `latency`
+- `status`
 
-535 ns latency (STM32 @ 84 MHz, DWT verified)
+This enables **full traceability of AI behavior under constraints**.
 
-24 bytes RAM
+---
 
-no dynamic allocation
+### 🔹 VVReport (session aggregation)
 
-fixed-point arithmetic
+At the end of a session, the system computes:
 
-MISRA-C:2012 compatible
+- `clip_rate` → how often AI violated constraints
+- `penalty_mean`
+- `penalty_max`
+- `safety_score_mean`
+- `pass/fail` vs threshold (default: `0.5`)
+- `hardware_latency` (~535 ns observed)
 
-🧠 Behavior
-At each control step, the system evaluates:
+---
 
-signal instability
+### 🔹 Automatic Report Generation
+generate_report()
 
-deviation from baseline
+Triggered by:
 
-rate of change
+- Command: `report`
+- OR automatic on `Ctrl+C`
 
-If unsafe behavior is detected, a deterministic constraint is applied.
+Outputs:
+vv_report_VV-YYYYMMDD-HHMMSS.json
 
-🛡️ Core Mechanism
-text
-penalty = κ × (EMA_MAD + α × (1 - coherence) + v_weight × velocity)
-gravity = max(0, 1 - penalty × g)
-safe_out = clip(ai_action × gravity, min_limit, max_limit)
-Hard clipping is always active.
+---
 
-📊 Benchmarks
-Metric	Value
-Latency	535 ns
-Memory	24 bytes
-Complexity	O(1)
-False Positive Rate	0.05
-📊 Comparison
-Method	Deterministic	Latency	Adaptivity	Safe by Default
-Threshold	✅	✅	❌	⚠️
-Kalman Filter	❌	❌	✅	❌
-PID Controller	✅	✅	⚠️	❌
-MicroSafe-RL	✅	✅	✅	✅
-📈 Experimental Results
-Figure A — Detection Margin
-MicroSafe maintains a significantly higher time-to-failure margin with low variance.
+## 🧠 Why This Matters
 
-https://media/Figure_A_margin.png
+Typical AI control systems:
 
-Figure B — ROC Space
-MicroSafe dominates the ROC space, achieving higher true positive rate.
+❌ No guarantees  
+❌ No runtime validation  
+❌ No safety metrics  
 
-https://media/Figure_B_ROC.png
+MicroSafe-RL provides:
 
-Figure C — Latency Distribution
-MicroSafe shows a tight, deterministic latency distribution near 535 ns.
+✅ Deterministic safety layer  
+✅ Real-time constraint enforcement  
+✅ Measurable safety (not heuristic)  
+✅ Hardware-level latency  
 
-https://media/Figure_C_hist.png
+---
 
-🔬 Failure Modes Covered
-signal spikes
+## 📁 Project Structure
 
-drift
+.
+├── data/
+│ └── demo_log.csv
+│
+├── examples/
+│ └── basic_demo/
+│ └── basic_demo.ino
+│
+├── include/
+│ ├── MicroSafeController.h
+│ ├── MicroSafeRL.h
+│ └── MicroSafeRL_CBF.h
+│
+├── MicroSafeRL_CBF_Demo/
+│ ├── MicroSafeRL_CBF_Demo.ino
+│ └── Readme.md
+│
+├── python/
+│ └── microsafe_llm_plugin.py
+│
+├── tests/
+│ └── test_basic.cpp
 
-oscillations
 
-noisy inputs
+---
 
-invalid AI outputs
+## 🔧 Example Output (Serial)
 
-LLM hallucinations
+AI,SAFE,SCORE
+0.82,0.65,0.91
+-1.20,-0.80,0.60
+0.30,0.30,1.00
 
-⚙️ Design Constraints
-no malloc / free
 
-no recursion
+---
 
-constant-time execution
+## 🧪 Example Use Cases
 
-fixed memory footprint
+- LLM-controlled robotics
+- Autonomous systems
+- Embedded AI (MCU / Edge)
+- Safety-critical control loops
+- Human-in-the-loop AI systems
 
-predictable branching
+---
 
-❌ Not Designed For
-offline ML
+## 🧩 Key Features
 
-cloud inference
+- Constraint-based safety (CBF-style)
+- Real-time clipping & correction
+- Penalty-driven evaluation
+- Deterministic execution
+- Ultra-low latency (~ns scale)
+- Full session analytics (VVReport)
 
-non-physical systems
+---
 
-🧪 Validation
-Measured via DWT cycle counter (STM32)
+## 📈 Safety Metric
+safety_score = 1 - penalty
 
-DOI: 10.5281/zenodo.19019599
 
-📁 Project Structure
-text
-MicroSafe/
-├── MicroSafeRL.h              # Core header
-├── MicroSafeRL_misra.h        # MISRA-C compliant version
-├── gemma_safety_demo.py       # Local LLM integration demo
-├── setup.py                   # Python bindings
-├── media/                     # Figures and demos
-├── examples/                  # Usage examples
-├── tests/                     # Unit tests
-├── wrappers/                  # Gym/RL wrappers
-└── docs/                      # Documentation
-🧭 Positioning
-Think of it as:
-PID controller — but for enforcing safety constraints
+| Penalty | Safety Score | Meaning        |
+|--------|-------------|----------------|
+| 0.0    | 1.0         | Fully safe     |
+| 0.5    | 0.5         | Borderline     |
+| 1.0    | 0.0         | Unsafe         |
 
-📬 Licensing & Contact
-All rights reserved.
+---
 
-This software is proprietary.
-Use, modification, or distribution without explicit permission is prohibited.
+## ▶️ Getting Started
 
-For commercial licensing:
-📧 kretski1@gmail.com
+1. Open `basic_demo.ino` in Arduino IDE
+2. Upload to board
+3. Open Serial Monitor (115200 baud)
+4. Observe:
+
+- AI vs Safe actions
+- Safety score per cycle
+
+---
+
+## 📌 Future Extensions
+
+- Adaptive constraints (learned boundaries)
+- Multi-dimensional safety fields
+- Integration with ROS / robotics stacks
+- Hardware-in-the-loop validation
+- Distributed safety monitoring
+
+---
+
+## 📄 License
+
+## 📄 License
+
+Proprietary License – Patent Pending
+
+This software contains technology subject to a pending patent application.
+
+- Allowed: research and evaluation use only
+- Not allowed: commercial use, redistribution, or modification without permission
+
+For licensing inquiries: [your email]
+
+---
+
+## 🤝 Contribution
+
+Pull requests welcome.
+
+Focus areas:
+
+- Safety models
+- Latency optimization
+- Real-world validation scenarios
+
