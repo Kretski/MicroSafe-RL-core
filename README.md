@@ -32,7 +32,25 @@ Each control cycle:
 5. Safety score is generated
 6. Final safe command is executed
 
----
+
+## 🔍 Built-in Validation & Verification (V&V)
+
+MicroSafe-RL includes continuous runtime validation and verification:
+
+- **Input Validation**  
+  Detects NaN, Inf, and malformed AI outputs.
+
+- **Output Verification**  
+  Enforces strict physical bounds via deterministic clipping.
+
+- **Runtime Monitoring**  
+  Tracks penalty, risk, and intervention events per control cycle.
+
+- **Behavioral Verification**  
+  Explicitly flags unsafe AI actions (`INTERCEPTED` state).
+
+Unlike traditional V&V systems, MicroSafe-RL performs verification **in real time, inside the control loop**.
+
 
 ## 📊 Runtime Telemetry (VV System)
 
@@ -189,7 +207,6 @@ safety_score = 1 - penalty
 
 ---
 
-## 📄 License
 
 ## 📄 License
 
@@ -200,7 +217,7 @@ This software contains technology subject to a pending patent application.
 - Allowed: research and evaluation use only
 - Not allowed: commercial use, redistribution, or modification without permission
 
-For licensing inquiries: [your email]
+For licensing inquiries: kretski1@gmail.com
 
 ---
 
