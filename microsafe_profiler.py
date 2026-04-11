@@ -108,8 +108,15 @@ class MicroSafeProfiler:
         """Return shaped reward = 1.0 - penalty"""
         return 1.0 - self._current_penalty
 
-    def shape_reward(self, env_reward: float) -> float:
-        """Blend environment reward with safety penalty (default weight 0.3)"""
+    def shape_reward(self, env_reward: float, sensor: float) -> float:
+        """
+        Blend environment reward with safety penalty (default weight 0.3).
+        Accepts 'sensor' argument to match microsafe_gym wrapper signature.
+        """
+        # Бележка: Добавен е параметърът `sensor`, за да не гърми кодът при 
+        # подаване на 2 аргумента от Gym wrapper-а. В случай че логиката 
+        # изисква преизчисляване на penalty на база на този сензор ПРЕДИ
+        # връщането на наградата, може да се добави тук. Засега ползваме текущия стейт.
         safety_r = self.get_current_reward()
         return (0.7 * env_reward) + (0.3 * safety_r)
 
