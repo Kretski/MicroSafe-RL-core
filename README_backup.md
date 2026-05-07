@@ -1,5 +1,9 @@
 # MicroSafe-RL
-
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![C++](https://img.shields.io/badge/Language-C++11-blue.svg)
+![MISRA](https://img.shields.io/badge/Compliance-MISRA:2012-green.svg)
+![Memory](https://img.shields.io/badge/RAM-24_bytes-orange.svg)
+![DOI](https://img.shields.io/badge/DOI-10.5281/zenodo.19019599-blue)
 **A 24-byte safety interceptor for RL agents on embedded hardware.**
 
 RL policies trained in simulation regularly produce out-of-range actuator commands when deployed on real hardware. This library clamps those commands deterministically, in O(1) time, before they reach the actuator.
