@@ -1,236 +1,141 @@
-# MicroSafe-RL — Runtime Safety Layer for LLM Control
+# MicroSafe-RL Core
 
-MicroSafe-RL is a lightweight, real-time safety layer designed for **LLM-driven control systems** (robotics, embedded AI, edge devices).
+**Runtime safety layer for AI/RL-assisted control systems.**
 
-It ensures that every action proposed by an AI model is **validated, corrected, and quantified** before execution.
+MicroSafe-RL Core is a lightweight deterministic safety layer designed to sit between an AI/RL controller and a physical actuator or constrained system.
 
----
+It does not replace the controller.
 
-## 🚀 Positioning
+It bounds, modulates, and monitors controller output before execution.
 
-Not a "plugin".
-
-A **runtime safety layer for LLM-driven control systems with built-in validation and metrics.**
-safety_score = 1 - penalty
-
-→ Provides **quantifiable safety per cycle**
-
-
----
-
-## ⚙️ Core Concept
-
-The system sits between:
-LLM / RL Agent → MicroSafe → Hardware / System
-
+Purpose
+AI and reinforcement learning controllers can produce numerically valid commands that are unsafe for real hardware.
+Examples:
+motor commands beyond actuator limits
+unstable output during noisy sensor phases
+sudden command spikes
+recovery overshoot after disturbance
+saturation without controller awareness
+MicroSafe-RL Core provides a small runtime safety layer that applies deterministic correction before the command reaches hardware.
+Core Features
+Deterministic runtime safety layer
+Soft attenuation before hard clipping
+Penalty-based safety metric
+Short-term signal history using EMA/MAD
+Velocity-aware instability detection
+No dynamic allocation in the embedded core
+Small state footprint
+Suitable for STM32 / Arduino-class control loops
+C++ header-only implementation
+Python profiler for simulation and tuning
+How It Works
 Each control cycle:
+The controller proposes a raw action.
+MicroSafe-RL evaluates sensor stability and command risk.
+A penalty value is computed.
+The command is softly attenuated when instability rises.
+Final hard bounds are enforced.
+The safe command is returned.
+float raw_action = ai_model_output;
+float sensor     = sensor_feedback;
 
-1. AI proposes action (`raw_action`)
-2. Safety layer evaluates constraints
-3. Unsafe actions are clipped or corrected (`safe_action`)
-4. Penalty is computed
-5. Safety score is generated
-6. Final safe command is executed
+float safe_action = safety.apply_safe_control(raw_action, sensor);
+float penalty     = safety.get_penalty();
+Safety Metric
+MicroSafe-RL exposes a penalty value:
+penalty = 0.0 -> stable / low intervention
+penalty = 1.0 -> high instability / maximum penalty
+A simple safety score can be derived as:
+safety_score = 1.0 - penalty
+SafetyBridge API
+SafetyBridge.h provides a simple wrapper around the core controller.
+#include "SafetyBridge.h"
 
+SafetyBridge bridge;
 
-## 🔍 Built-in Validation & Verification (V&V)
+void setup() {
+    bridge.init(0.0f);
+}
 
-MicroSafe-RL includes continuous runtime validation and verification:
+void loop() {
+    float raw_command = get_ai_or_controller_output();
+    float sensor_val  = read_sensor();
 
-- **Input Validation**  
-  Detects NaN, Inf, and malformed AI outputs.
+    SafetyResult result = bridge.process(raw_command, sensor_val);
 
-- **Output Verification**  
-  Enforces strict physical bounds via deterministic clipping.
-
-- **Runtime Monitoring**  
-  Tracks penalty, risk, and intervention events per control cycle.
-
-- **Behavioral Verification**  
-  Explicitly flags unsafe AI actions (`INTERCEPTED` state).
-
-Unlike traditional V&V systems, MicroSafe-RL performs verification **in real time, inside the control loop**.
-
-
-## 📊 Runtime Telemetry (VV System)
-
-### 🔹 VVRecord (per-cycle logging)
-
-Each loop records:
-
-- `raw_action`
-- `safe_action`
-- `penalty`
-- `gravity`
-- `clipped` (bool)
-- `safety_score`
-- `latency`
-- `status`
-
-This enables **full traceability of AI behavior under constraints**.
-
----
-
-### 🔹 VVReport (session aggregation)
-
-At the end of a session, the system computes:
-
-- `clip_rate` → how often AI violated constraints
-- `penalty_mean`
-- `penalty_max`
-- `safety_score_mean`
-- `pass/fail` vs threshold (default: `0.5`)
-- `hardware_latency` (~535 ns observed)
-
----
-
-### 🔹 Automatic Report Generation
-generate_report()
-
-Triggered by:
-
-- Command: `report`
-- OR automatic on `Ctrl+C`
-
-Outputs:
-vv_report_VV-YYYYMMDD-HHMMSS.json
-
----
-
-## 🧠 Why This Matters
-
-Typical AI control systems:
-
-❌ No guarantees  
-❌ No runtime validation  
-❌ No safety metrics  
-
-MicroSafe-RL provides:
-
-✅ Deterministic safety layer  
-✅ Real-time constraint enforcement  
-✅ Measurable safety (not heuristic)  
-✅ Hardware-level latency  
-
----
-
-## 📁 Project Structure
-
-.
-├── data/
-│ └── demo_log.csv
-│
-├── examples/
-│ └── basic_demo/
-│ └── basic_demo.ino
-│
-├── include/
-│ ├── MicroSafeController.h
-│ ├── MicroSafeRL.h
-│ └── MicroSafeRL_CBF.h
-│
-├── MicroSafeRL_CBF_Demo/
-│ ├── MicroSafeRL_CBF_Demo.ino
-│ └── Readme.md
-│
-├── python/
-│ └── microsafe_llm_plugin.py
-│
-├── tests/
-│ └── test_basic.cpp
-
-
----
-
-## 🔧 Example Output (Serial)
-
-AI,SAFE,SCORE
-0.82,0.65,0.91
--1.20,-0.80,0.60
-0.30,0.30,1.00
-
-
----
-
-## 🧪 Example Use Cases
-
-- LLM-controlled robotics
-- Autonomous systems
-- Embedded AI (MCU / Edge)
-- Safety-critical control loops
-- Human-in-the-loop AI systems
-
----
-
-## 🧩 Key Features
-
-- Constraint-based safety (CBF-style)
-- Real-time clipping & correction
-- Penalty-driven evaluation
-- Deterministic execution
-- Ultra-low latency (~ns scale)
-- Full session analytics (VVReport)
-
----
-
-## 📈 Safety Metric
-safety_score = 1 - penalty
-
-
-| Penalty | Safety Score | Meaning        |
-|--------|-------------|----------------|
-| 0.0    | 1.0         | Fully safe     |
-| 0.5    | 0.5         | Borderline     |
-| 1.0    | 0.0         | Unsafe         |
-
----
-
-## ▶️ Getting Started
-
-1. Open `basic_demo.ino` in Arduino IDE
-2. Upload to board
-3. Open Serial Monitor (115200 baud)
-4. Observe:
-
-- AI vs Safe actions
-- Safety score per cycle
-
----
-
-## 📌 Future Extensions
-
-- Adaptive constraints (learned boundaries)
-- Multi-dimensional safety fields
-- Integration with ROS / robotics stacks
-- Hardware-in-the-loop validation
-- Distributed safety monitoring
-
----
-
-
-## 📄 License
-
+    actuator_write(result.safe_action);
+}
+SafetyResult contains:
+struct SafetyResult {
+    float safe_action;
+    float penalty;
+    bool  was_modified;
+    bool  is_safe;
+};
+Current Implementation Status
+Implemented:
+Core safety modulation
+Penalty calculation
+Soft command attenuation
+Hard output limits
+Basic bridge result
+Python simulation/profiling helper
+Demonstration scripts
+Planned / under development:
+Full per-cycle telemetry records
+JSON session reports
+Explicit status labels such as INTERCEPTED
+Hardware latency benchmark harness
+NaN/Inf input guard in the embedded header
+Pure C / MISRA-oriented variant
+Target Use Cases
+Embedded AI safety experiments
+RL-controlled robotics
+Motor-control test benches
+Small rovers and balancing robots
+STM32 / Arduino-class prototypes
+Runtime monitoring for AI-assisted control loops
+Research and evaluation of safety layers for constrained systems
+Important Safety Notice
+MicroSafe-RL Core is experimental software.
+It is not certified for safety-critical deployment.
+Do not use it as the only safety mechanism in systems where failure may cause injury, property damage, or regulatory non-compliance.
+For production use, independent validation, hardware testing, and a commercial license agreement are required.
+Repository Structure
+MicroSafeRL.h              Core C++ safety layer
+SafetyBridge.h             Simple runtime bridge API
+microsafe_profiler.py      Python simulation / tuning helper
+gemma_safety_demo.py       Example AI safety bridge demo
+paper_mode.py              Experimental benchmark script
+MicroSafeRL_misra.h        MISRA-oriented C++ header variant
+MISRA_compliance_report.txt Static-analysis report notes
+Licensing
 Copyright (c) 2026 Dimitar Kretski.
-
 This software is proprietary and commercially licensed.
-
-You may not use, copy, modify, distribute, sublicense, or deploy this software
-for commercial or production purposes without a separate written license
-agreement from the copyright holder.
-- Allowed: research and evaluation use only
-- Not allowed: commercial use, redistribution, or modification without permission
-
-For licensing inquiries: kretski1@gmail.com
-
----
-
-## 🤝 Contribution
-
-Pull requests welcome.
-
-Focus areas:
-
-- Safety models
-- Latency optimization
-- Real-world validation scenarios
-
+You may not use, copy, modify, distribute, sublicense, or deploy this software for commercial or production purposes without a separate written license agreement from the copyright holder.
+Allowed without a commercial license:
+private review
+academic reading
+non-commercial evaluation
+internal testing with permission
+Not allowed without a commercial license:
+commercial use
+product integration
+redistribution
+sublicensing
+production deployment
+offering this software as part of a paid service or hardware product
+For licensing inquiries:
+kretski1@gmail.com
+Commercial Positioning
+MicroSafe-RL Core is intended as a runtime safety and observability layer for AI/RL-assisted control systems.
+It is designed for teams that need deterministic control bounds, lightweight runtime monitoring, and deployable safety logic on constrained hardware without relying on large neural networks or specialized AI accelerators.
+Status
+Current version: experimental commercial core.
+Recommended next validation steps:
+run on STM32 target hardware
+measure cycle latency using hardware timers
+measure object/state size with compiler output
+compare against hard clipping under noisy sensor conditions
+log raw command, safe command, penalty, and intervention rate
+AI / RL Policy -> MicroSafe-RL -> Hardware / System
