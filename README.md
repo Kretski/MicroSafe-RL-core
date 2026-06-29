@@ -15,7 +15,7 @@ safety_score = 1 - penalty
 
 → Provides **quantifiable safety per cycle**
 
-Patented safety architecture ("Synergy") enabling deterministic, model-independent control at runtime.
+
 ---
 
 ## ⚙️ Core Concept
@@ -210,10 +210,13 @@ safety_score = 1 - penalty
 
 ## 📄 License
 
-Proprietary License – Patent Pending
+Copyright (c) 2026 Dimitar Kretski.
 
-This software contains technology subject to a pending patent application.
+This software is proprietary and commercially licensed.
 
+You may not use, copy, modify, distribute, sublicense, or deploy this software
+for commercial or production purposes without a separate written license
+agreement from the copyright holder.
 - Allowed: research and evaluation use only
 - Not allowed: commercial use, redistribution, or modification without permission
 
