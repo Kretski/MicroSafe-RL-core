@@ -1,18 +1,27 @@
 #ifndef SAFETY_BRIDGE_H
 #define SAFETY_BRIDGE_H
 
+#include <cmath>           // for fabs()
 #include "MicroSafeRL.h"
 
+// SafetyBridge — thin wrapper around MicroSafeRL with structured result output.
+// Adds is_safe flag (penalty < SAFE_THRESHOLD) for easy integration in control loops.
+
 struct SafetyResult {
-    float safe_action;
-    float penalty;
-    bool  was_modified;
-    bool  is_safe;
+    float safe_action;   // attenuated + clamped command
+    float penalty;       // instability score in [0, max_penalty]
+    bool  was_modified;  // true if output differs from raw input by >0.001
+    bool  is_safe;       // true if penalty < SAFE_THRESHOLD (default 0.9)
 };
 
 class SafetyBridge {
 private:
     MicroSafeRL safety;
+
+    // SAFE_THRESHOLD: penalty below which the system is considered stable.
+    // 0.9 = 90% of max_penalty. Configurable via constructor if needed.
+    // At default max_penalty=1.0, this means instability score < 0.9.
+    static const float SAFE_THRESHOLD;  // defined below
 
 public:
     SafetyBridge(float k = 1.15f, float a = 0.55f, float b = 2.2f,
@@ -30,10 +39,10 @@ public:
         float safe_cmd = safety.apply_safe_control(raw_ai_command, current_sensor);
         float penalty  = safety.get_penalty();
 
-        result.safe_action   = safe_cmd;
-        result.penalty       = penalty;
-        result.was_modified  = (fabs(safe_cmd - raw_ai_command) > 0.001f);
-        result.is_safe       = (penalty < 0.9f);
+        result.safe_action  = safe_cmd;
+        result.penalty      = penalty;
+        result.was_modified = (fabs((double)(safe_cmd - raw_ai_command)) > 0.001);
+        result.is_safe      = (penalty < SAFE_THRESHOLD);
 
         return result;
     }
@@ -41,6 +50,15 @@ public:
     float get_penalty() const {
         return safety.get_penalty();
     }
+
+    void reset() {
+        safety.reset();
+    }
 };
 
-#endif
+// SAFE_THRESHOLD = 0.9 (90% of max_penalty=1.0).
+// Rationale: allows moderate instability compensation while flagging
+// near-saturation conditions before hard clamp engages.
+const float SafetyBridge::SAFE_THRESHOLD = 0.9f;
+
+#endif // SAFETY_BRIDGE_H
