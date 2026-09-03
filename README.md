@@ -1,236 +1,214 @@
 # MicroSafe-RL Core
 
-**Runtime safety layer for AI/RL-assisted control systems.**
+**A deterministic runtime output filter for AI/RL-assisted control on constrained hardware.**
 
-MicroSafe-RL Core is a lightweight deterministic safety layer designed to sit between an AI/RL controller and a physical actuator or constrained system.
+MicroSafe-RL Core sits between a controller (classical, RL, or learned) and aphysical actuator. It does not replace the controller and does not model theplant. It monitors sensor behaviour, attenuates commands when short-terminstability rises, and enforces hard actuator bounds before execution.
 
-It does not replace the controller.
+    AI / RL policy  →  MicroSafe-RL  →  actuator
 
-It bounds, modulates, and monitors controller output before execution.
+* * *
 
----
+## What problem this addresses
 
-## Purpose
+A controller can emit a numerically valid command that is bad for the hardware:beyond actuator limits, spiking during noisy sensor phases, or overshootingduring recovery from a disturbance. On microcontroller-class targets thestandard runtime-assurance approaches — control barrier functions with a QPsolver, Simplex architectures with a verified backup controller — need a plantmodel and compute budget that a Cortex-M control loop often does not have.
 
-AI and reinforcement learning controllers can produce numerically valid commands that are unsafe for real hardware. Examples:
+MicroSafe-RL Core is a deliberately minimal alternative for that gap: model-free,fixed-cost, and small enough to sit inside an existing loop withoutrestructuring it.
 
-- Motor commands beyond actuator limits
-- Unstable output during noisy sensor phases
-- Sudden command spikes
-- Recovery overshoot after disturbance
-- Saturation without controller awareness
+* * *
 
-MicroSafe-RL Core provides a small runtime safety layer that applies deterministic correction before the command reaches hardware.
+## Scope and honest positioning
 
----
+This is important enough to state before the feature list.
 
-## Memory and Latency
+**What the hard bounds guarantee.** For finite inputs, the output is alwayswithin `[a_min, a_max]`. This is an unconditional guarantee and it is thecomponent doing the load-bearing safety work.
 
-| Metric | Value | Notes |
-|--------|-------|-------|
-| RAM footprint | ~68 bytes | 4 state floats + 8 config floats + DebugState (5 floats) + bool |
-| Worst-case latency | <1.2 µs | STM32F4 @ 168 MHz, measured via hardware timer |
-| Dynamic allocation | None | Header-only, no heap usage |
+**What the adaptive layer currently contributes.** Attenuation is`a_safe = clip(a / (1 + g·P))`. At the default `gravity_factor = 0.05` and`max_penalty = 1.0`, the maximum possible attenuation is:
 
-> **Note on RAM:** The full `MicroSafeRL` class including `DebugState` and configuration occupies approximately 68 bytes. If only the 4 runtime state variables (ema_mean, ema_mad, prev_value, current_penalty) are counted, the minimum state footprint is 16 bytes. The 68-byte figure reflects the complete instantiated object.
+    1 / (1 + 0.05 · 1.0) = 0.952  →  4.76% reduction
 
----
+That is small. The penalty signal is presently more useful as **observability**— an exported instability score that upstream logic can react to — than as anactuator-level intervention. Users who want the attenuation to have visibleauthority must raise `gravity_factor` substantially and re-tune for their plant.
 
-## Core Features
+**What this is not.** It is not a safety controller, not a certified component,and not a substitute for a hardware interlock or a verified backup controller.It has no formal guarantee of closed-loop stability (see Limitations).
 
-- Deterministic runtime safety layer
-- Soft attenuation before hard clipping
-- Penalty-based safety metric
-- Short-term signal history using EMA/MAD
-- Velocity-aware instability detection
-- **NaN/Inf input guard** — invalid AI commands return fail-safe zero; invalid sensor values use last known good value (dead-reckoning)
-- No dynamic allocation in the embedded core
-- C++ header-only implementation (C++03 compatible, MISRA C++ guidelines)
-- Python profiler for simulation and tuning
+* * *
 
----
+## Memory and latency
 
-## How It Works
+| Metric | Value | Measurement |
+| --- | --- | --- |
+| Runtime state | 16 bytes | 4 × `float`: `ema_mean`, `ema_mad`, `prev_value`, `current_penalty` |
+| Full object | ~68 bytes | State + 8 config floats + `DebugState` + flag; verify with `sizeof()` on your target |
+| Worst-case latency | < 1.2 µs | STM32F4 @ 168 MHz, DWT cycle counter |
+| Dynamic allocation | None | Header-only, no heap, no recursion, no data-dependent loops |
 
-Each control cycle:
+Latency was measured on hardware, not estimated. The measurement harness isbeing packaged for release so the figure is independently reproducible; untilthen, treat it as indicative of the right order of magnitude rather than as acertified worst case.
 
-1. The controller proposes a raw action.
-2. MicroSafe-RL checks for NaN/Inf inputs (fail-safe return if detected).
-3. Sensor stability and command risk are evaluated.
-4. A penalty value is computed.
-5. The command is softly attenuated when instability rises.
-6. Final hard bounds are enforced.
-7. The safe command is returned.
+* * *
 
-```cpp
-float raw_action = ai_model_output;
-float sensor     = sensor_feedback;
+## Algorithm
 
-float safe_action = safety.apply_safe_control(raw_action, sensor);
-float penalty     = safety.get_penalty();
-```
+Per control cycle, given sensor reading `x_t` and proposed action `a_t`:
 
----
+    NaN/Inf guard      invalid a_t → 0.0 ; invalid x_t → prev_value
+    EMA                mu_t  = λ·mu_{t-1} + (1-λ)·x_t
+    deviation          d_t   = |x_t - mu_t|
+    EWMA-MAD           M_t   = λ·M_{t-1} + (1-λ)·d_t
+    sensor velocity    v_t   = |x_t - x_{t-1}|
+    coherence          C_t   = 1 / (1 + β·d_t)
+    instability        R_t   = M_t + α·(1 - C_t) + 0.3·v_t
+    penalty            P_t   = min(κ·R_t, P_max)
+    attenuation        G_t   = 1 / (1 + g·P_t)
+    output             a_safe = clip(a_t · G_t, a_min, a_max)
 
-## Safety Metric
+Note that `M_t` is an exponentially weighted mean absolute deviation updatedevery cycle, not a batch MAD over a window. The velocity term tracks the*sensor*, not the commanded action — the filter responds to how the physicalstate is moving, not only to what the controller proposes.
 
-MicroSafe-RL exposes a penalty value:
+### Default parameters
 
-```
-penalty = 0.0  →  stable / low intervention
-penalty = 1.0  →  high instability / maximum attenuation
-```
+    kappa          = 1.15
+    alpha          = 0.55
+    beta           = 2.2
+    lambda         = 0.12
+    max_penalty    = 1.0
+    gravity_factor = 0.05
+    bounds         = [-1.5, +1.5]
 
-A simple safety score:
+These are starting values from bench tuning on a small rotor, notgeneral-purpose defaults. See Limitations regarding units.
 
-```
-safety_score = 1.0 - penalty
-```
+* * *
 
----
+## Usage
 
-## NaN/Inf Handling
+    #include "SafetyBridge.h"
+    
+    SafetyBridge bridge;
+    
+    void setup() {
+        bridge.init(0.0f);
+    }
+    
+    void loop() {
+        float raw_command = get_controller_output();
+        float sensor_val  = read_sensor();
+    
+        SafetyResult result = bridge.process(raw_command, sensor_val);
+        actuator_write(result.safe_action);
+    }
 
-```cpp
-// If ai_action is NaN or |ai_action| > 1e6: returns 0.0f (fail-safe)
-// If sensor_val is NaN or |sensor_val| > 1e6: uses prev_value (dead-reckoning)
-```
+    struct SafetyResult {
+        float safe_action;   // attenuated and clamped command
+        float penalty;       // instability score in [0, max_penalty]
+        bool  was_modified;  // |safe_action - raw| > 0.001 (absolute)
+        bool  is_safe;       // penalty < 0.9 * max_penalty
+    };
 
-This ensures that adversarial or corrupted inputs do not propagate through the safety layer.
+**Caveat on `was_modified`:** the threshold is absolute. With default`gravity_factor`, attenuation of a command with |a| < 0.021 falls below 0.001,so the flag reads false even though the filter acted. Use `penalty` rather than`was_modified` if you need to detect low-amplitude intervention. A relativethreshold is planned.
 
----
+**Rationale for `is_safe` at 0.9 × max_penalty:** flags near-saturation beforethe hard clamp engages, so upstream logic has a cycle or two to react.
 
-## SafetyBridge API
+* * *
 
-```cpp
-#include "SafetyBridge.h"
+## Invalid-input handling
 
-SafetyBridge bridge;
+    a_t  is NaN or |a_t|  > 1e6   →  return 0.0f            (fail-safe)
+    x_t  is NaN or |x_t|  > 1e6   →  use prev_value          (dead-reckoning)
 
-void setup() {
-    bridge.init(0.0f);
-}
+Note that fail-safe zero is only genuinely safe on plants where zero command isa safe state. On a gravity-loaded joint or a lifting rotor it is not. This is aplant-dependent configuration decision, not a property of the library — seeLimitations.
 
-void loop() {
-    float raw_command = get_ai_or_controller_output();
-    float sensor_val  = read_sensor();
+* * *
 
-    SafetyResult result = bridge.process(raw_command, sensor_val);
+## Limitations and known issues
 
-    actuator_write(result.safe_action);
-}
-```
+Stated openly because they determine where this is and is not appropriate.
 
-`SafetyResult` contains:
+1. **Zero is not universally safe.** Both the attenuation path and theNaN fail-safe drive the command toward zero. On systems where zero commandmeans "fall", "stall", or "release", this is the wrong fallback. Aconfigurable fallback action (e.g. attenuate toward a gravity-compensationterm) is the highest-priority planned change.
+  
+2. **No closed-loop stability analysis.** Inserting a state-dependent gainchanges the dynamics of the closed loop, and control authority is reducedprecisely when sensor velocity is high. Limit cycles or slow divergence areplausible failure modes and have not been ruled out analytically orempirically.
+  
+3. **`R_t` is dimensionally inconsistent.** It sums a quantity in sensor units(`M_t`), a dimensionless quantity (`1 - C_t`), and a velocity inunits-per-sample (`v_t`). Rescaling the sensor changes `R_t` and invalidates`kappa`, `beta`, and the hard-coded `0.3`. Parameters are therefore notportable between applications without retuning. Normalisation is planned.
+  
+4. **No baseline comparison yet.** Verification to date establishesself-consistency (the code implements the equations) and invariants (boundshold, determinism holds). It does **not** establish that the filter improvessafety relative to plain clipping. See Validation status.
+  
+5. **Attenuation authority is low at defaults.** See Scope above.
+  
 
-```cpp
-struct SafetyResult {
-    float safe_action;   // attenuated + clamped command
-    float penalty;       // instability score [0, max_penalty]
-    bool  was_modified;  // true if output differs from input by >0.001
-    bool  is_safe;       // true if penalty < 0.9 (90% of max_penalty)
-};
-```
+* * *
 
-`is_safe` threshold is 0.9 × max_penalty. Rationale: flags near-saturation conditions before hard clamp engages, allowing upstream logic to react.
+## Validation status
 
----
+**Established:**
 
-## Implementation Status
+| Property | Method |
+| --- | --- |
+| Output within bounds for finite inputs | 100,000 randomised cases, 0 violations |
+| Determinism (same state + params → same output) | Reference test suite |
+| Penalty saturation at `max_penalty` | Reference test suite |
+| Penalty rise under disturbance, decay after | Reference test suite |
+| Response to sensor velocity | Reference test suite |
+| Math matches the C++ header | Python reference reimplementation |
+| Runs in a real control loop | STM32F4 + rotor bench, serial trace |
 
-**Implemented:**
-- Core safety modulation
-- Penalty calculation
-- Soft command attenuation
-- Hard output limits
-- NaN/Inf input guard (fail-safe zero + dead-reckoning)
-- Basic bridge result with `is_safe` flag
-- Python simulation/profiling helper
-- Demonstration scripts
-- MISRA C++-oriented variant (`MicroSafeRL_misra.h`)
+**Not established:**
 
-**Planned / under development:**
-- Full per-cycle telemetry records
-- JSON session reports
-- Explicit status labels such as `INTERCEPTED`
-- Hardware latency benchmark harness (STM32 timer-based)
-- Pure C variant
+* Improvement over hard clipping under matched disturbance scenarios
+* Closed-loop stability on any plant
+* Behaviour on a plant where zero command is unsafe
+* Parameter transferability across systems
+* Independently reproducible latency figure
 
----
+The next milestone is a benchmark comparing **raw controller / hard clipping /MicroSafe-RL / CBF-QP** on a common plant (reaction-wheel pendulum insimulation, then hardware) under identical disturbances, reporting constraintviolations, action jerk, task performance loss, intervention rate, and computecost. Until that exists, claims about this layer's benefit should be read ashypotheses.
 
-## Repository Structure
+* * *
 
-```
-MicroSafeRL.h              Core C++ safety layer
-SafetyBridge.h             Simple runtime bridge API
-MicroSafeRL_misra.h        MISRA C++-oriented header variant
-MISRA_compliance_report.txt Static-analysis report notes
-microsafe_profiler.py      Python simulation / tuning helper
-gemma_safety_demo.py       Example AI safety bridge demo
-paper_mode.py              Experimental benchmark script
-```
+## Related work
 
----
+MicroSafe-RL Core belongs to the runtime-assurance family, alongside controlbarrier functions and ASIF, Simplex architectures, reference governors, andshielded RL. Those methods offer stronger guarantees and require a plant model,a solver, or a verified backup controller. This library trades the guarantee fora fixed sub-microsecond cost and a 16-byte state on hardware where those methodsdo not fit. That trade is the contribution, and it is only worth anything if thebenchmark above shows a measurable gain over plain clipping.
 
-## Target Use Cases
+* * *
 
-- Embedded AI safety experiments
-- RL-controlled robotics
-- Motor-control test benches
-- Small rovers and balancing robots
-- STM32 / Arduino-class prototypes
-- Runtime monitoring for AI-assisted control loops
-- Research and evaluation of safety layers for constrained systems
+## Repository structure
 
----
+    MicroSafeRL.h                Core C++ safety layer
+    MicroSafeRL_misra.h          MISRA C++-oriented variant
+    SafetyBridge.h               Runtime bridge API
+    MISRA_compliance_report.txt  Static-analysis notes
+    microsafe_profiler.py        Simulation and tuning helper
+    paper_mode.py                Benchmark script
+    gemma_safety_demo.py         Example integration demo
 
-## Important Safety Notice
+Header-only, C++03 compatible, MISRA C++ guidelines.
 
-MicroSafe-RL Core is **experimental software**.
+* * *
 
-It is **not certified** for safety-critical deployment.
+## Roadmap
 
-Do not use it as the only safety mechanism in systems where failure may cause injury, property damage, or regulatory non-compliance.
+* Configurable fallback action (not hard-coded zero)
+* Dimensional normalisation of `R_t`
+* Relative threshold for `was_modified`
+* Published latency benchmark harness
+* Comparative benchmark vs clipping and CBF
+* Per-cycle telemetry and JSON session records
+* Pure C variant
 
-For production use, independent validation, hardware testing, and a commercial license agreement are required.
+* * *
 
----
+## Safety notice
 
-## Licensing
+Experimental software. Not certified for safety-critical deployment. Do not useas the only safety mechanism in any system where failure may cause injury,property damage, or regulatory non-compliance. Independent validation andhardware testing are required before any deployment.
+
+* * *
+
+## License
+
+Licensed under the **Apache License, Version 2.0**. See `LICENSE`.
+
+You may use, modify, and ship this in a commercial product without permissionand without payment, under the ordinary Apache-2.0 conditions.
+
+A separate commercial agreement is available for organisations that needwarranty and liability terms, indemnification, certification support, orvalidation on their own plant — things the open license explicitly disclaims.It is never required to use the software. See `COMMERCIAL.md`.
 
 Copyright (c) 2026 Dimitar Kretski.
 
-This software is proprietary and commercially licensed.
+* * *
 
-You may not use, copy, modify, distribute, sublicense, or deploy this software for commercial or production purposes without a separate written license agreement.
+## Contact
 
-**Allowed without a commercial license:**
-- Private review
-- Academic reading
-- Non-commercial evaluation
-- Internal testing with permission
-
-**Not allowed without a commercial license:**
-- Commercial use
-- Product integration
-- Redistribution
-- Production deployment
-
-Licensing inquiries: kretski1@gmail.com
-
----
-
-## Status
-
-Current version: experimental commercial core.
-
-**Recommended validation steps before production use:**
-1. Run on STM32 target hardware
-2. Measure cycle latency using hardware timers
-3. Measure object size with `sizeof(MicroSafeRL)` on target compiler
-4. Compare against hard clipping under noisy sensor conditions
-5. Log raw command, safe command, penalty, and intervention rate
-
-```
-AI / RL Policy  →  MicroSafe-RL  →  Hardware / System
-```
+Dimitar Kretski — kretski1@gmail.comCenter for Hydro- and Aerodynamics, Varna, Bulgaria
