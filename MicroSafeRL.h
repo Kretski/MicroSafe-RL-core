@@ -1,4 +1,16 @@
-#ifndef MICRO_SAFE_RL_H
+Apache License 2.0 (default)
+
+Everything in this repository is released under Apache-2.0. See `LICENSE`.
+
+You may use it commercially, modify it, integrate it into a product, and shipthat product, without asking permission and without paying anything. Theconditions are the ordinary Apache-2.0 ones:
+
+* Keep the copyright and license notice
+* State significant changes you made to the files
+* Include a copy of the license with any redistribution
+* Do not use the project name or the author's name to endorse your product
+* The patent grant terminates if you initiate patent litigation over thissoftware
+
+If Apache-2.0 works for you, take it and go. No contact required.#ifndef MICRO_SAFE_RL_H
 #define MICRO_SAFE_RL_H
 
 // MicroSafe-RL — lightweight deterministic safety layer for AI/RL control systems.
