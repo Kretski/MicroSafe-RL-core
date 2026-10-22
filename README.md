@@ -41,7 +41,7 @@ That is small. The penalty signal is presently more useful as **observability** 
 | Metric | Value | Measurement |
 | --- | --- | --- |
 | Runtime state | 16 bytes | 4 × `float`: `ema_mean`, `ema_mad`, `prev_value`, `current_penalty` |
-| Full object | ~68 bytes | State + 8 config floats + `DebugState` + flag; verify with `sizeof()` on your target |
+| Full object | 72 bytes | State + 8 config floats + `DebugState` + flag, incl. padding (`sizeof`, x86-64 g++); verify on your target |
 | Worst-case latency | < 1.2 µs | STM32F4 @ 168 MHz, DWT cycle counter |
 | Dynamic allocation | None | Header-only, no heap, no recursion, no data-dependent loops |
 
@@ -182,7 +182,7 @@ MicroSafe-RL Core belongs to the runtime-assurance family, alongside control bar
 
 ```
 MicroSafeRL.h                Core C++ safety layer
-MicroSafeRL_misra.h          MISRA C++-oriented variant
+MicroSafeRL_misra.h          MISRA C++-oriented variant (class MicroSafeRLMisra, same algorithm)
 SafetyBridge.h               Runtime bridge API
 MISRA_compliance_report.txt  Static-analysis notes
 microsafe_profiler.py        Simulation and tuning helper
@@ -190,7 +190,12 @@ paper_mode.py                Benchmark script
 gemma_safety_demo.py         Example integration demo
 ```
 
-Header-only, C++03 compatible, MISRA C++ guidelines.
+Header-only, C++03 compatible. `tests/test_safety_core.cpp` checks that the reference and MISRA-oriented implementations produce identical outputs.
+
+```
+g++ -std=c++11 tests/basic_tests.cpp -o basic_tests && ./basic_tests
+g++ -std=c++11 tests/test_safety_core.cpp -o test_safety_core && ./test_safety_core
+```
 
 ---
 
