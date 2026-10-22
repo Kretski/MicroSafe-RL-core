@@ -1,38 +1,75 @@
+// Edge-case tests: both implementations must give identical results.
+// Build: g++ -std=c++11 tests/test_safety_core.cpp -o test_safety_core && ./test_safety_core
 #include <iostream>
 #include <cassert>
 #include <cmath>
+#include <cstdlib>
+#include <limits>
+#include "../MicroSafeRL.h"
 #include "../MicroSafeRL_misra.h"
 
-void run_edge_case_tests() {
-    // Initialize with standard parameters
-    MicroSafeRL safety(0.088f, 0.55f, 0.95f, 0.85f, 1.0f, -1.5f, 1.5f, 0.05f);
+static MicroSafeRL make_ref() {
+    return MicroSafeRL(1.15f, 0.55f, 2.2f, 0.12f, 1.0f, -1.5f, 1.5f, 0.05f);
+}
+
+static MicroSafeRLMisra make_misra() {
+    return MicroSafeRLMisra(MSRL_DEFAULT_KAPPA, MSRL_DEFAULT_ALPHA, MSRL_DEFAULT_BETA,
+                            MSRL_DEFAULT_LAMBDA, MSRL_DEFAULT_MAX_PENALTY,
+                            MSRL_DEFAULT_MIN_LIMIT, MSRL_DEFAULT_MAX_LIMIT,
+                            MSRL_DEFAULT_GRAVITY);
+}
+
+template <class S>
+static void edge_cases(S safety, const char* name) {
     safety.init(0.0f);
+    const float nan_v = std::numeric_limits<float>::quiet_NaN();
+    const float inf_v = std::numeric_limits<float>::infinity();
 
-    std::cout << "Running Critical Safety Tests...\n";
+    // 1. NaN action -> fail-safe zero
+    float r = safety.apply_safe_control(nan_v, 0.0f);
+    assert(r == 0.0f);
 
-    // TEST 1: Handling NaN (Not a Number) from AI
-    float32_t nan_action = std::nanf("");
-    float32_t result_nan = safety.apply_safe_control(nan_action, 0.0f);
-    // Logic: mod = NaN * 1.0 = NaN. Clamp should catch it.
-    std::cout << "[CHECK] Input NaN -> Output: " << result_nan << " (Clamped)\n";
-    assert(result_nan <= 1.5f && result_nan >= -1.5f);
+    // 2. +Inf / -Inf action -> fail-safe zero
+    assert(safety.apply_safe_control(inf_v, 0.0f) == 0.0f);
+    assert(safety.apply_safe_control(-inf_v, 0.0f) == 0.0f);
 
-    // TEST 2: Handling Infinity from AI
-    float32_t inf_action = std::numeric_limits<float>::infinity();
-    float32_t result_inf = safety.apply_safe_control(inf_action, 0.0f);
-    std::cout << "[CHECK] Input +Inf -> Output: " << result_inf << " (Max Limit)\n";
-    assert(result_inf == 1.5f);
+    // 3. NaN sensor -> output stays finite and within bounds
+    r = safety.apply_safe_control(1.0f, nan_v);
+    assert(r == r && r >= -1.5f && r <= 1.5f);
 
-    // TEST 3: Massive Sensor Noise (Instability Check)
-    float32_t crazy_sensor = 1000000.0f;
-    float32_t result_instable = safety.apply_safe_control(1.0f, crazy_sensor);
-    std::cout << "[CHECK] Sensor Surge -> Penalty: " << safety.get_penalty() << "\n";
-    assert(safety.get_penalty() <= 1.0f); // Should be capped at max_penalty
+    // 4. Huge sensor value is treated as invalid; penalty stays capped
+    r = safety.apply_safe_control(1.0f, 1.0e7f);
+    assert(r == r && safety.get_penalty() <= 1.0f);
 
-    std::cout << "✅ ALL EDGE CASE TESTS PASSED.\n";
+    // 5. Large finite action is clamped
+    assert(safety.apply_safe_control(1000.0f, 0.0f) <= 1.5f);
+    assert(safety.apply_safe_control(-1000.0f, 0.0f) >= -1.5f);
+
+    std::cout << "[PASS] Edge cases: " << name << "\n";
+}
+
+static void equivalence() {
+    MicroSafeRL ref = make_ref();
+    MicroSafeRLMisra mis = make_misra();
+    ref.init(0.0f);
+    mis.init(0.0f);
+    std::srand(3);
+
+    float max_diff = 0.0f;
+    for (int i = 0; i < 100000; i++) {
+        float a = ((std::rand() / (float)RAND_MAX) - 0.5f) * 6.0f;
+        float x = ((std::rand() / (float)RAND_MAX) - 0.5f) * 4.0f;
+        float d = std::fabs(ref.apply_safe_control(a, x) - mis.apply_safe_control(a, x));
+        if (d > max_diff) max_diff = d;
+    }
+    assert(max_diff < 1e-6f);
+    std::cout << "[PASS] Reference and MISRA variant agree (max |diff| = " << max_diff << ")\n";
 }
 
 int main() {
-    run_edge_case_tests();
+    edge_cases(make_ref(), "MicroSafeRL.h");
+    edge_cases(make_misra(), "MicroSafeRL_misra.h");
+    equivalence();
+    std::cout << "\nAll edge-case tests passed.\n";
     return 0;
 }
